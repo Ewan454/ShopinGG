@@ -46,8 +46,12 @@ nav button span{font-size:21px}nav .on{color:var(--ac);font-weight:700}
 .im{aspect-ratio:4/3;background:var(--bd) center/cover;display:flex;align-items:center;justify-content:center;font-size:36px}
 .rc .t{padding:10px}.hero{border-radius:18px;margin-bottom:12px}
 .tr{display:flex;justify-content:space-between;align-items:center;padding:6px 0}.best{color:var(--ac);font-weight:700}
+[hidden]{display:none!important}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom,0px));background:var(--tx);color:var(--bg);border-radius:14px;padding:10px 16px;display:flex;gap:16px;align-items:center;z-index:5;max-width:92%;font-size:14px}
+#toast button{color:inherit;font-weight:700;text-decoration:underline}
 </style></head><body>
 <div id="v"></div>
+<div id="toast" hidden></div><datalist id="names"></datalist>
 <nav>
 <button data-t="inv"><span>📦</span>Inventory</button>
 <button data-t="list"><span>🛒</span>List</button>
@@ -59,8 +63,8 @@ nav button span{font-size:21px}nav .on{color:var(--ac);font-weight:700}
 <script>
 const SH=['Lidl','Asda','Sainsbury’s','Morrisons','Tesco','Local'],UN=['each','g','kg','ml','l'];
 const AC={Teal:['#0b8f7f','#35c4b0'],Blue:['#2563eb','#6ea0ff'],Violet:['#7c3aed','#a98bff'],Rose:['#e11d6a','#ff6fa5'],Orange:['#d9480f','#ff9a55'],Green:['#2f9e44','#5fd37a']};
-const D0=()=>({inv:[],list:[],rec:[],plan:[],px:{},ac:'Teal',mode:'auto',key:''});
-let D=D0(),U={tab:'inv',sort:'type',ls:'plain',shop:SH[0],rid:null,view:null,sv:null,f:'',ph:'',rv:null,rs:'',msg:''},SM=null,IMG=false;
+const D0=()=>({inv:[],list:[],rec:[],plan:[],px:{},pk:{},ac:'Teal',mode:'auto',key:''});
+let D=D0(),U={tab:'inv',sort:'type',ls:'plain',shop:SH[0],rid:null,view:null,sv:null,f:'',ph:'',rv:null,rs:'',msg:'',ed:null,cook:false,wl:null,draft:null,snap:null},SM=null,IMG=false;
 try{const r=localStorage.getItem('shopingg');if(r)D=Object.assign(D,JSON.parse(r))}catch(e){}
 const save=()=>{try{localStorage.setItem('shopingg',JSON.stringify(D))}catch(e){}};
 const $=s=>document.querySelector(s),v=i=>$('#'+i).value.trim();
@@ -81,7 +85,9 @@ const usel=i=>`<select id=${i} aria-label="Unit">${UN.map(u=>`<option>${u}</opti
 const T=[['Cleaning','bleach|detergent|washing|sponge|soap|cleaner|bin bag|toilet|dishwasher'],['Fish','salmon|cod|prawn|haddock|fish'],['Meat','chicken|beef|mince|pork|lamb|bacon|sausage|ham|turkey|steak'],['Dairy & Eggs','milk|cheese|butter|yogh?urt|cream|egg'],['Fruit','apple|banana|orange|lemon|lime|berr|grape'],['Veg','tomato|onion|carrot|potato|pepper|garlic|broccoli|lettuce|cucumber|mushroom|spinach|courgette|cabbage|leek'],['Tins & Dry','tin|bean|chickpea|lentil|rice|pasta|flour|sugar|oil|sauce|stock|noodle|tuna|spice|salt']];
 const typ=n=>{n=n.toLowerCase();for(const[t,r]of T)if(new RegExp(r).test(n))return t;return'Other'};
 const locDef=t=>({Cleaning:'Cleaning','Tins & Dry':'Cupboard',Other:'Cupboard',Fruit:'Cupboard'}[t]||'Fridge');
-const find=(a,n,b)=>a.find(x=>K(x.name)===K(n)&&(x.b||'')===(b||'')),have=(n,b)=>(find(D.inv,n,b)||{qty:0}).qty;
+const find=(a,n,b)=>a.find(x=>K(x.name)===K(n)&&(x.b||'')===(b||'')),
+cv=(n,f,t,q)=>{const p=D.pk[K(n)];if(!p||f===t)return 0;return f===''&&p.b===t?q*p.q:f===p.b&&t===''?q/p.q:0},
+have=(n,b)=>{b=b||'';let t=(find(D.inv,n,b)||{qty:0}).qty;D.inv.forEach(x=>{if(K(x.name)===K(n)&&(x.b||'')!==b)t+=cv(n,x.b||'',b,x.qty)});return t};
 function addInv(n,q,b,t,l){const i=find(D.inv,n,b);if(i)i.qty=N(i.qty+q);else{t=t||typ(n);D.inv.push({id:id(),name:n,qty:q,b,type:t,loc:l||locDef(t)})}}
 function addList(n,q,b,mx){const i=D.list.find(x=>K(x.name)===K(n)&&(x.b||'')===(b||'')&&!x.done);if(i)i.qty=mx?Math.max(i.qty,q):N(i.qty+q);else D.list.push({id:id(),name:n,qty:q,b:b||'',done:false})}
 const pk=(n,b)=>K(n)+'|'+(b||''),ext=(p,q,b)=>p*(b?q/1000:q);
@@ -89,42 +95,60 @@ const pr=(n,b,s)=>{const e=(D.px[s]||{})[pk(n,b)];return e?e.p:null};
 const best=(n,b)=>{let o=null;SH.forEach(s=>{const p=pr(n,b,s);if(p!=null&&(!o||p<o.p))o={s,p}});return o};
 const tl=r=>[r.cuisine,...(r.tags||'').split(',').map(s=>s.trim())].filter(Boolean);
 const recOf=i=>D.rec.find(x=>x.id===i),sc=r=>(U.sv||r.serves)/r.serves;
-function syncPlan(){const m={};D.plan.filter(p=>!p.done).forEach(p=>{const r=recOf(p.rid);if(!r)return;r.ing.forEach(g=>{const k=pk(g.name,g.b);m[k]=m[k]||{n:g.name,b:g.b||'',q:0};m[k].q+=g.qty*p.sv/r.serves})});Object.values(m).forEach(g=>{const s=Math.ceil(g.q-1e-9)-have(g.n,g.b);if(s>0)addList(g.n,s,g.b,1)})}
+function syncPlan(){const m={};D.plan.filter(p=>!p.done).forEach(p=>{const r=recOf(p.rid);if(!r)return;r.ing.forEach(g=>{const k=pk(g.name,g.b);m[k]=m[k]||{n:g.name,b:g.b||'',q:0};m[k].q+=g.qty*p.sv/r.serves})});Object.values(m).forEach(g=>{const s=Math.ceil(g.q-1e-9)-have(g.n,g.b);if(s>0&&!isStaple(g.n))addList(g.n,s,g.b,1)})}
 const stp=(a,i,t)=>`<span class=st><button data-a="${a}-" data-i="${i}" aria-label="Less">−</button><b>${t}</b><button data-a="${a}+" data-i="${i}" aria-label="More">+</button></span>`;
 
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],td=()=>(new Date().getDay()+6)%7;
+const isStaple=n=>D.inv.some(x=>K(x.name)===K(n)&&x.stp);
+const miss=r=>r.ing.filter(g=>!isStaple(g.name)&&have(g.name,g.b||'')<g.qty-1e-9).length;
+const parseIng=s=>s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d+(?:\.\d+)?)\s*(kg|g|ml|l)?\b\s*(.*)$/i);if(!m||!m[3])return{qty:1,b:'',name:l};const o=toB(+m[1],(m[2]||'each').toLowerCase());return{qty:o.q,b:o.b,name:m[3]}});
+function take(n,b,q){let r=q;const e=find(D.inv,n,b);if(e){const u=Math.min(e.qty,r);e.qty=N(e.qty-u);r-=u}
+if(r>0)D.inv.forEach(x=>{if(r>0&&K(x.name)===K(n)&&(x.b||'')!==b){const f=cv(n,b,x.b||'',1);if(f){const u=Math.min(x.qty,r*f);x.qty=N(x.qty-u);r-=u/f}}})}
+const DEST={idel:'Item deleted',ldel:'Removed from list',fin:'Shop finished',rdel:'Recipe deleted',pdel:'Meal removed',sdel:'Price deleted',made:'Marked as made',rvsave:'Prices saved'};
+let tt;function toast(m,u){const t=$('#toast');t.innerHTML=`<span>${esc(m)}</span>${u?'<button data-a=undo>Undo</button>':''}`;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,6000)}
+function edCard(){const x=D.inv.find(a=>a.id===U.ed);if(!x)return'';const p=D.pk[K(x.name)];
+return `<div class=card><b>Edit ${esc(x.name)}</b><input id=en value="${esc(x.name)}" style="margin-top:8px"><div class=row><select id=et>${[...T.map(t=>t[0]),'Other'].map(t=>`<option ${t===x.type?'selected':''}>${t}</option>`).join('')}</select><input id=el list=ll value="${esc(x.loc)}" placeholder="Location"></div>
+<div class=row><label style="flex:none;align-self:center;display:flex;gap:8px;align-items:center"><input type=checkbox id=es ${x.stp?'checked':''}>Staple</label><input id=elw type=number min=0 step=any value="${x.low||''}" placeholder="Low below (${x.b||'items'})"></div>
+<small>Pack size, so grams and items combine. 1 item =</small><div class=row style="margin-top:6px"><input id=epq type=number min=0 step=any value="${p?p.q:''}" placeholder="e.g. 500"><select id=epu>${['g','kg','ml','l'].map(u=>`<option ${p&&p.b==='ml'&&u==='ml'?'selected':''}>${u}</option>`).join('')}</select></div>
+<div class=row><button class=sec data-a=ecancel>Cancel</button><button class=pri data-a=esave>Save</button></div></div>`}
+const RPROMPT=`This is a photo or screenshot of a recipe. Reply with only JSON: {"name":"","cuisine":"","serves":number,"ingredients":["one per line, like 500 g mince or 3 tomatoes or 250 ml cream"],"steps":"method as plain text, one step per line"}. Use g, kg, ml, l or a plain count for amounts, converting cups and spoons if you can. Never invent anything that isn't shown.`;
+async function scanRecipe(file){U.rs='busy';U.msg='';R();
+try{const o=await ask(await shrink(file),RPROMPT);U.rid=null;U.draft={name:String(o.name||''),cuisine:String(o.cuisine||''),tags:'',serves:+o.serves||4,ing:parseIng((o.ingredients||[]).join('\n')),steps:String(o.steps||'')};U.view='form'}
+catch(e){U.msg=e&&e.code==='badkey'?'The API key was rejected. Check it in Settings.':'Couldn’t read that recipe. Try a clearer photo.'}
+U.rs='';R()}
 function vInv(){
 const g={};D.inv.forEach(i=>{const k=U.sort==='az'?'All items':i[U.sort]||'Other';(g[k]=g[k]||[]).push(i)});
 const locs=[...new Set(D.inv.map(i=>i.loc))];
-return `<h1>Inventory</h1><div class=card><input id=in placeholder="Add item, e.g. chicken breast"><div class=row><input id=iqt type=number min=0 step=any value=1 aria-label="Amount">${usel('iu')}<input id=il list=ll placeholder="Location"></div><datalist id=ll>${locs.map(l=>`<option>${esc(l)}</option>`).join('')}</datalist><div class=row style="margin-top:8px"><select id=it style="margin:0"><option value="">Type: auto</option>${T.map(t=>`<option>${t[0]}</option>`).join('')}<option>Other</option></select><button class=pri data-a=iadd>Add</button></div></div>
-<div class=chips>${[['type','By type'],['loc','By location'],['az','A–Z']].map(([k,l])=>`<button class="chip ${U.sort===k?'on':''}" data-a=isort data-i=${k}>${l}</button>`).join('')}</div>
+return `<h1>Inventory</h1>${edCard()}<div class=card><input id=in list=names placeholder="Add item, e.g. chicken breast"><div class=row><input id=iqt type=number min=0 step=any value=1 aria-label="Amount">${usel('iu')}<input id=il list=ll placeholder="Location"></div><datalist id=ll>${locs.map(l=>`<option>${esc(l)}</option>`).join('')}</datalist><div class=row style="margin-top:8px"><select id=it style="margin:0"><option value="">Type: auto</option>${T.map(t=>`<option>${t[0]}</option>`).join('')}<option>Other</option></select><button class=pri data-a=iadd>Add</button></div></div>
+<input data-q placeholder="Search inventory"><div class=chips>${[['type','By type'],['loc','By location'],['az','A–Z']].map(([k,l])=>`<button class="chip ${U.sort===k?'on':''}" data-a=isort data-i=${k}>${l}</button>`).join('')}</div>
 ${D.inv.length?'':'<p class=mu>Nothing here yet. Add what’s in your cupboards, or finish a shop and it fills itself.</p>'}
-${Object.keys(g).sort().map(k=>`<h3>${esc(k)}</h3><div class=card>${g[k].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<div class="it ${i.qty<=0?'z':''}"><div class=g><div>${esc(i.name)}</div><small>${esc(U.sort==='type'?i.loc:U.sort==='loc'?i.type:i.loc+' · '+i.type)}${i.qty<=0?' · out':''}</small></div>${stp('iq',i.id,fmt(i.qty,i.b||''))}<button class=x data-a=idel data-i=${i.id} aria-label="Delete">✕</button></div>`).join('')}</div>`).join('')}`}
+${Object.keys(g).sort().map(k=>`<h3>${esc(k)}</h3><div class=card>${g[k].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<div class="it ${i.qty<=0?'z':''}" data-n="${esc(i.name.toLowerCase())}"><div class=g><div>${esc(i.name)}</div><small>${esc(U.sort==='type'?i.loc:U.sort==='loc'?i.type:i.loc+' · '+i.type)}${i.qty<=0?' · out':i.qty<(i.low||0)?' · low':''}${i.stp?' · staple':''}</small></div>${stp('iq',i.id,fmt(i.qty,i.b||''))}<button class=x data-a=iedit data-i=${i.id} aria-label="Edit">✎</button><button class=x data-a=idel data-i=${i.id} aria-label="Delete">✕</button></div>`).join('')}</div>`).join('')}`}
 
 function vList(){
-const L=D.list,sug=D.inv.filter(i=>i.qty<=0&&!L.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done));
+const L=D.list,sug=D.inv.filter(i=>!i.stp&&(i.qty<=0||i.qty<(i.low||0))&&!L.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done));
 const tot=SH.map(s=>{let t=0,m=0;L.forEach(x=>{const p=pr(x.name,x.b,s);p==null?m++:t+=ext(p,x.qty,x.b)});return{s,t,m}}).filter(o=>o.m<L.length);
 let bs=null;if(tot.length){const mm=Math.min(...tot.map(o=>o.m)),c=tot.filter(o=>o.m===mm),mt=Math.min(...c.map(o=>o.t));bs=c.find(o=>o.t===mt).s}
-const g={};L.forEach(x=>{const b=best(x.name,x.b),k=U.ls==='shop'?(b?b.s:'No price yet'):'To buy';(g[k]=g[k]||[]).push(x)});
+const g={};L.forEach(x=>{const b=best(x.name,x.b),k=U.ls==='shop'?(b?b.s:'No price yet'):U.ls==='type'?typ(x.name):'To buy';(g[k]=g[k]||[]).push(x)});
 const nd=L.filter(x=>x.done).length;
-return `<h1>Shopping list</h1><div class=card><input id=ln placeholder="Add item"><div class=row><input id=lq type=number min=0 step=any value=1 aria-label="Amount">${usel('lu')}<button class=pri data-a=ladd>Add</button></div></div>
-${sug.length?`<h3>Out of stock. Add again?</h3><div class=chips>${sug.map(i=>`<button class=chip data-a=sug data-i=${i.id}>+ ${esc(i.name)}</button>`).join('')}</div>`:''}
-<div class=chips>${[['plain','As added'],['shop','By cheapest shop']].map(([k,l])=>`<button class="chip ${U.ls===k?'on':''}" data-a=lsort data-i=${k}>${l}</button>`).join('')}</div>
+return `<h1>Shopping list</h1><div class=card><input id=ln list=names placeholder="Add item"><div class=row><input id=lq type=number min=0 step=any value=1 aria-label="Amount">${usel('lu')}<button class=pri data-a=ladd>Add</button></div></div>
+${sug.length?`<h3>Out or running low. Add?</h3><div class=chips>${sug.map(i=>`<button class=chip data-a=sug data-i=${i.id}>+ ${esc(i.name)}</button>`).join('')}</div>`:''}
+<div class=chips>${[['plain','As added'],['type','By aisle'],['shop','By cheapest shop']].map(([k,l])=>`<button class="chip ${U.ls===k?'on':''}" data-a=lsort data-i=${k}>${l}</button>`).join('')}<button class="chip ${U.wl?'on':''}" data-a=wl>Keep screen on</button></div>
 ${L.length?'':'<p class=mu>Your list is empty. Add items, or add a recipe to your meal plan.</p>'}
-${Object.keys(g).sort().map(k=>`${U.ls==='shop'?`<h3>${esc(k)}</h3>`:''}<div class=card>${g[k].map(x=>{const b=best(x.name,x.b);return `<div class="it ${x.done?'dn':''}"><input type=checkbox data-a=tick data-i=${x.id} ${x.done?'checked':''} aria-label="Got it"><div class=g><div>${esc(x.name)}</div><small>${b?`Cheapest: ${esc(b.s)} ${gbp(b.p)}${lab(x.b)}`:'No price yet'}</small></div>${stp('lq',x.id,fmt(x.qty,x.b||''))}<button class=x data-a=ldel data-i=${x.id} aria-label="Remove">✕</button></div>`}).join('')}</div>`).join('')}
-${nd?`<button class=pri data-a=fin style="width:100%;margin-bottom:12px">Finish shop: add ${nd} bought to inventory</button>`:''}
+${Object.keys(g).sort().map(k=>`${U.ls!=='plain'?`<h3>${esc(k)}</h3>`:''}<div class=card>${g[k].slice().sort((a,b)=>a.done-b.done).map(x=>{const b=best(x.name,x.b);return `<div class="it ${x.done?'dn':''}"><input type=checkbox data-a=tick data-i=${x.id} ${x.done?'checked':''} aria-label="Got it"><div class=g><div>${esc(x.name)}</div><small>${b?`Cheapest: ${esc(b.s)} ${gbp(b.p)}${lab(x.b)}`:'No price yet'}</small></div>${stp('lq',x.id,fmt(x.qty,x.b||''))}<button class=x data-a=ldel data-i=${x.id} aria-label="Remove">✕</button></div>`}).join('')}</div>`).join('')}
+${L.length?'<button class=sec data-a=share style="width:100%;margin-bottom:12px">Share list</button>':''}${nd?`<button class=pri data-a=fin style="width:100%;margin-bottom:12px">Finish shop: add ${nd} bought to inventory</button>`:''}
 ${tot.length?`<h3>Whole shop by store</h3><div class=card>${tot.map(o=>`<div class="tr ${o.s===bs?'best':''}"><span>${esc(o.s)}${o.s===bs?' (cheapest)':''}${o.m?` <small>${o.m} unpriced</small>`:''}</span><b>${gbp(o.t)}</b></div>`).join('')}</div>`:''}`}
 
 function vRec(){
 if(U.view==='form')return vForm();
 if(U.view==='detail'&&recOf(U.rid))return vDet();
-const all=[...new Set(D.rec.flatMap(tl))],rs=D.rec.filter(r=>!U.f||tl(r).includes(U.f));
-return `<h1>Recipes</h1><button class=pri data-a=rnew style="width:100%;margin-bottom:12px">New recipe</button>
+const all=[...new Set(D.rec.flatMap(tl))],rs=D.rec.filter(r=>(!U.f||tl(r).includes(U.f))&&(!U.cook||miss(r)<=1)).sort((a,b)=>U.cook?miss(a)-miss(b):0);
+return `<h1>Recipes</h1>${U.rs==='busy'?'<div class=card><b>Reading recipe…</b><br><small>This can take up to a minute.</small></div>':''}${U.msg?`<small class=bad>${esc(U.msg)}</small>`:''}<div class=row style="margin-bottom:8px"><button class=pri data-a=rnew>New recipe</button>${canScan()?`<label class=sec style="text-align:center;cursor:pointer">📷 From photo<input id=rsc type=file accept="image/*" hidden></label>`:''}</div><div class=chips><button class="chip ${U.cook?'on':''}" data-a=cook>Can cook now</button></div><input data-q placeholder="Search recipes">
 ${all.length?`<div class=chips><button class="chip ${U.f?'':'on'}" data-a=rf data-i="">All</button>${all.map(t=>`<button class="chip ${U.f===t?'on':''}" data-a=rf data-i="${esc(t)}">${esc(t)}</button>`).join('')}</div>`:''}
 ${D.rec.length?'':'<p class=mu>No recipes yet. Add your first one with a photo, ingredients and method.</p>'}
-<div class=grid>${rs.map(r=>`<button class=rc data-a=ropen data-i=${r.id}><div class=im ${r.photo?`style="background-image:url(${r.photo})"`:''}>${r.photo?'':'🍽️'}</div><div class=t><b>${esc(r.name)}</b><br><small>${esc(tl(r).join(', '))}</small></div></button>`).join('')}</div>`}
+<div class=grid>${rs.map(r=>`<button class=rc data-a=ropen data-i=${r.id} data-n="${esc((r.name+' '+tl(r).join(' ')).toLowerCase())}"><div class=im ${r.photo?`style="background-image:url(${r.photo})"`:''}>${r.photo?'':'🍽️'}</div><div class=t><b>${esc(r.name)}</b><br><small>${esc(tl(r).join(', '))}</small><br><small class="${miss(r)?'':'ok'}">${miss(r)?miss(r)+' missing':'Ready to cook'}</small></div></button>`).join('')}</div>`}
 
 function vForm(){
-const r=recOf(U.rid)||{};U.ph=r.photo||'';
+const r=recOf(U.rid)||U.draft||{};U.ph=r.photo||'';
 return `<h1>${r.id?'Edit recipe':'New recipe'}</h1><div class=card>
 <div class="im hero" id=pv ${U.ph?`style="background-image:url(${U.ph})"`:''}>${U.ph?'':'📷'}</div>
 <input id=ph type=file accept="image/*">
@@ -138,7 +162,7 @@ return `<h1>${r.id?'Edit recipe':'New recipe'}</h1><div class=card>
 
 function vDet(){
 const r=recOf(U.rid),sv=U.sv||r.serves,k=sc(r);let cost=0,miss=0;
-const rows=r.ing.map((g,i)=>{const b0=g.b||'',q=N(g.qty*k),h=have(g.name,b0),need=N(Math.max(0,q-h)),b=best(g.name,b0);b?cost+=ext(b.p,q,b0):miss++;
+const rows=r.ing.map((g,i)=>{const b0=g.b||'',q=N(g.qty*k),h=have(g.name,b0),need=isStaple(g.name)?0:N(Math.max(0,q-h)),b=best(g.name,b0);b?cost+=ext(b.p,q,b0):miss++;
 return `<div class=it><div class=g><div>${fmt(q,b0)} ${esc(g.name)}</div><small class="${need?'bad':'ok'}">${need?`Need ${fmt(need,b0)} more (have ${fmt(h,b0)})`:`Have enough (${fmt(h,b0)})`}</small></div>${need?`<button class=chip data-a=ring data-i=${i}>+ List</button>`:''}</div>`}).join('');
 return `<button class=sec data-a=rback style="margin-bottom:12px">Back</button>
 <div class="im hero" ${r.photo?`style="background-image:url(${r.photo})"`:''}>${r.photo?'':'🍽️'}</div>
@@ -147,21 +171,23 @@ return `<button class=sec data-a=rback style="margin-bottom:12px">Back</button>
 <small>${cost?`About ${gbp(cost)} in total, ${gbp(cost/sv)} per serving${miss?` (${miss} unpriced)`:''}`:'Add prices in Shops to see the cost per meal'}</small></div>
 <h3>Ingredients</h3><div class=card>${rows||'<small>No ingredients</small>'}</div>
 <h3>Method</h3><div class=card style="white-space:pre-wrap">${esc(r.steps||'No method added.')}</div>
-<button class=pri data-a=padd style="width:100%;margin-bottom:8px">Add to meal plan</button>
+<div class=row style="margin-bottom:8px"><select id=pd aria-label="Day" style="margin:0">${DAYS.map((d,i)=>`<option value=${i} ${i===td()?'selected':''}>${d}</option>`).join('')}<option value=-1>No day</option></select><button class=pri data-a=padd>Add to meal plan</button></div>
 <div class=row><button class=sec data-a=redit>Edit</button><button class="sec bad" data-a=rdel>Delete</button></div>`}
 
 function vPlan(){
-return `<h1>Meal plan</h1>${D.plan.length?`<div class=card>${D.plan.map(p=>{const r=recOf(p.rid);if(!r)return'';return `<div class="it ${p.done?'dn':''}"><div class=g><div>${esc(r.name)}</div><small>Serves ${p.sv}${p.done?' · made ✓':''}</small></div>${p.done?'':`<button class=pri data-a=made data-i=${p.id}>Made it</button>`}<button class=x data-a=pdel data-i=${p.id} aria-label="Remove">✕</button></div>`}).join('')}</div>`:'<p class=mu>Open a recipe and tap “Add to meal plan”. Anything you’re missing lands on your shopping list automatically.</p>'}`}
+const row=p=>{const r=recOf(p.rid);if(!r)return'';return `<div class="it ${p.done?'dn':''}"><div class=g><div>${esc(r.name)}</div><small>Serves ${p.sv}${p.done?' · made ✓':''}</small></div><select data-a=pday data-i=${p.id} style="width:84px;margin:0" aria-label="Day">${DAYS.map((d,i)=>`<option value=${i} ${p.day===i?'selected':''}>${d}</option>`).join('')}<option value=-1 ${p.day>=0?'':'selected'}>None</option></select>${p.done?'':`<button class=pri data-a=made data-i=${p.id}>Made</button>`}<button class=x data-a=pdel data-i=${p.id} aria-label="Remove">✕</button></div>`};
+const grp=(t,l,h)=>`<h3${h?' style="color:var(--ac)"':''}>${t}</h3><div class=card>${l.length?l.map(row).join(''):'<small>Nothing planned</small>'}</div>`;
+return `<h1>Meal plan</h1>${D.plan.length?'':'<p class=mu>Open a recipe, pick a day and tap “Add to meal plan”. Anything you’re missing lands on your shopping list automatically.</p>'}${DAYS.map((d,i)=>grp(d+(i===td()?' (today)':''),D.plan.filter(p=>p.day===i),i===td())).join('')}${D.plan.some(p=>!(p.day>=0))?grp('No day',D.plan.filter(p=>!(p.day>=0))):''}`}
 
 const PROMPT=`This is a photo of a UK supermarket receipt. Reply with only JSON in this shape: {"store":"shop name or empty","items":[{"name":"simple generic ingredient name as used in recipes, e.g. chicken breast, tomatoes, kidney beans","amount":total quantity bought on this line as a number,"unit":"each" or "g" or "kg" or "ml" or "l","total":price paid for the line in pounds as a number}]}. Use the weight or volume for fresh meat, fish and veg sold by weight (e.g. 650g, 1.2kg loose). For tins, jars, bottles, boxes and packs that people count, use unit "each" with amount as the number of units. Skip bags, discounts, subtotals, payment and loyalty lines. Never invent items.`;
 function rvEach(x){if(x.u==='each')return{p:x.tot/x.amt,b:''};if(x.cnt)return{p:x.tot/x.cnt,b:''};const o=toB(x.amt,x.u);return{p:x.tot/(o.q/1000),b:o.b}}
 const rvTxt=x=>{const o=rvEach(x);return isFinite(o.p)?`${gbp(o.p)} ${plab(o.b)}`:'Enter an amount'};
 const shrink=f=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const s=Math.min(1,1600/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>b?ok(b):no(),'image/jpeg',.85)};im.onerror=no;im.src=URL.createObjectURL(f)});
 const canScan=()=>IMG||!!D.key;
-async function ask(blob){
-if(SM&&IMG)return SM.json(PROMPT,{images:[blob],modelTier:'default'});
+async function ask(blob,P=PROMPT){
+if(SM&&IMG)return SM.json(P,{images:[blob],modelTier:'default'});
 const b64=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(blob)});
-const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':D.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:2000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:PROMPT}]}]})});
+const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':D.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:2000,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:'image/jpeg',data:b64}},{type:'text',text:P}]}]})});
 if(!res.ok)throw{code:res.status===401?'badkey':'api'};
 const t=(await res.json()).content.map(c=>c.text||'').join('');
 return JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1))}
@@ -193,7 +219,7 @@ ${U.msg?`<small class=bad>${esc(U.msg)}</small>`:''}
 function vShops(){
 const s=U.shop,m=D.px[s]||{},ks=Object.keys(m).sort((a,b)=>m[a].n.localeCompare(m[b].n));
 return `<h1>Shops</h1>${vScan()}<div class=chips>${SH.map(x=>`<button class="chip ${x===s?'on':''}" data-a=shop data-i="${x}">${x}</button>`).join('')}</div>
-<div class=card><input id=sn placeholder="Item, as named in recipes"><div class=row><input id=sp type=number min=0 step=0.01 placeholder="£" aria-label="Price"><select id=spu aria-label="Price per"><option value="">each</option><option value=g>per kg</option><option value=ml>per litre</option></select></div><button class=pri data-a=sadd style="width:100%;margin-top:8px">Save price at ${esc(s)}</button></div>
+<div class=card><input id=sn list=names placeholder="Item, as named in recipes"><div class=row><input id=sp type=number min=0 step=0.01 placeholder="£" aria-label="Price"><select id=spu aria-label="Price per"><option value="">each</option><option value=g>per kg</option><option value=ml>per litre</option></select></div><button class=pri data-a=sadd style="width:100%;margin-top:8px">Save price at ${esc(s)}</button></div>
 ${ks.length?`<div class=card>${ks.map(k=>`<div class=it><div class=g><div>${esc(m[k].n)}</div><small>${plab(m[k].b)}</small></div><input type=number step=0.01 min=0 value="${m[k].p}" data-a=pxe data-i="${k}" style="width:90px;margin:0" aria-label="Price"><button class=x data-a=sdel data-i="${k}" aria-label="Delete">✕</button></div>`).join('')}</div>`:`<p class=mu>No prices for ${esc(s)} yet.</p>`}`}
 
 function vSet(){
@@ -204,7 +230,7 @@ ${SM?'':`<div class=card><b>Receipt scanning</b><br><small>Uses your own Anthrop
 
 const A={
 isort:i=>U.sort=i,
-iadd(){const n=v('in');if(!n)return;const o=toB(+v('iqt')||0,v('iu'));addInv(n,o.q,o.b,v('it'),v('il'))},
+iadd(){const n=v('in');if(!n)return;const o=toB(+v('iqt')||0,v('iu'));addInv(n,o.q,o.b,v('it'),v('il'));const x=D.inv.find(a=>K(a.name)===K(n)&&(a.b||'')!==o.b);if(x&&!D.pk[K(n)])toast('You also track '+n+' as '+(x.b||'items')+'. Tap ✎ to set a pack size so they combine.')},
 'iq-':i=>{const x=D.inv.find(x=>x.id===i);x.qty=Math.max(0,N(x.qty-stepOf(x.b)))},
 'iq+':i=>{const x=D.inv.find(x=>x.id===i);x.qty=N(x.qty+stepOf(x.b))},
 idel:i=>D.inv=D.inv.filter(x=>x.id!==i),
@@ -217,21 +243,21 @@ tick:i=>{const x=D.list.find(x=>x.id===i);x.done=!x.done},
 ldel:i=>D.list=D.list.filter(x=>x.id!==i),
 fin(){D.list.filter(x=>x.done).forEach(x=>addInv(x.name,x.qty,x.b||''));D.list=D.list.filter(x=>!x.done)},
 rf:i=>U.f=U.f===i?'':i,
-rnew(){U.rid=null;U.view='form'},
+rnew(){U.rid=null;U.draft=null;U.view='form'},
 ropen(i){U.rid=i;U.view='detail';U.sv=null},
 rback(){U.view=null},
 redit(){U.view='form'},
-rcancel(){U.view=U.rid?'detail':null},
+rcancel(){U.draft=null;U.view=U.rid?'detail':null},
 rdel(){D.rec=D.rec.filter(x=>x.id!==U.rid);D.plan=D.plan.filter(p=>p.rid!==U.rid);U.view=null},
 rsave(){const n=v('rn');if(!n)return;
-const ing=$('#ri').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d+(?:\.\d+)?)\s*(kg|g|ml|l)?\b\s*(.*)$/i);if(!m||!m[3])return{qty:1,b:'',name:l};const o=toB(+m[1],(m[2]||'each').toLowerCase());return{qty:o.q,b:o.b,name:m[3]}});
+const ing=parseIng($('#ri').value);
 const o={name:n,cuisine:v('rc'),tags:v('rt'),serves:+v('rs')||4,ing,steps:$('#rp').value.trim(),photo:U.ph},r=recOf(U.rid);
-if(r)Object.assign(r,o);else{o.id=id();D.rec.push(o);U.rid=o.id}U.view='detail';U.sv=null},
+if(r)Object.assign(r,o);else{o.id=id();D.rec.push(o);U.rid=o.id}U.draft=null;U.view='detail';U.sv=null},
 'sv-'(){const r=recOf(U.rid);U.sv=Math.max(1,(U.sv||r.serves)-1)},
 'sv+'(){const r=recOf(U.rid);U.sv=(U.sv||r.serves)+1},
 ring(i){const r=recOf(U.rid),g=r.ing[i],b=g.b||'';addList(g.name,Math.ceil(g.qty*sc(r)-1e-9)-have(g.name,b),b,1)},
-padd(){const r=recOf(U.rid);D.plan.push({id:id(),rid:r.id,sv:U.sv||r.serves,done:false});syncPlan();U.tab='plan'},
-made(i){const p=D.plan.find(x=>x.id===i),r=recOf(p.rid);r.ing.forEach(g=>{const e=find(D.inv,g.name,g.b||'');if(e)e.qty=Math.max(0,N(e.qty-g.qty*p.sv/r.serves))});p.done=true},
+padd(){const r=recOf(U.rid);D.plan.push({id:id(),rid:r.id,sv:U.sv||r.serves,day:+v('pd'),done:false});syncPlan();U.tab='plan'},
+made(i){const p=D.plan.find(x=>x.id===i),r=recOf(p.rid);r.ing.forEach(g=>take(g.name,g.b||'',g.qty*p.sv/r.serves));p.done=true},
 pdel:i=>D.plan=D.plan.filter(x=>x.id!==i),
 shop:i=>U.shop=i,
 sadd(){const n=v('sn'),p=parseFloat(v('sp')),b=v('spu');if(!n||isNaN(p))return;(D.px[U.shop]=D.px[U.shop]||{})[pk(n,b)]={n,b,p}},
@@ -241,19 +267,29 @@ rvcancel(){U.rv=null;U.msg=''},
 rvsave(){const r=U.rv,it=r.items.filter(x=>x.on&&x.n.trim());
 if(it.some(x=>!isFinite(rvEach(x).p))){U.msg='Check the amounts, or untick items you don’t need.';return}
 const m=D.px[r.shop]=D.px[r.shop]||{};it.forEach(x=>{const o=rvEach(x);m[pk(x.n,o.b)]={n:x.n.trim(),b:o.b,p:N(o.p)}});U.shop=r.shop;U.rv=null;U.msg=''},
+iedit(i){U.ed=i;scrollTo(0,0)},
+ecancel(){U.ed=null},
+esave(){const x=D.inv.find(a=>a.id===U.ed);if(!x)return;x.name=v('en')||x.name;x.type=v('et');x.loc=v('el')||x.loc;x.stp=$('#es').checked;x.low=+v('elw')||0;
+const q=+v('epq');if(q>0){const o=toB(q,v('epu'));D.pk[K(x.name)]={b:o.b,q:o.q}}else delete D.pk[K(x.name)];U.ed=null},
+cook(){U.cook=!U.cook},
+wl(){if(U.wl)U.wl.release();else if(navigator.wakeLock)navigator.wakeLock.request('screen').then(l=>{U.wl=l;l.addEventListener('release',()=>{U.wl=null;if(U.tab==='list')R()});R()}).catch(()=>{})},
+share(){const t='Shopping list\n'+D.list.filter(x=>!x.done).map(x=>'• '+fmt(x.qty,x.b||'')+' '+x.name).join('\n');if(navigator.share)navigator.share({text:t}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('List copied'))},
+undo(){if(U.snap){D=JSON.parse(U.snap);U.snap=null}},
 ac(i){D.ac=i;theme()},
 mode(i){D.mode=i;theme()},
 key(){D.key=v('ak')},
 exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='shopingg-backup.json';a.click()}
 };
 const V={inv:vInv,list:vList,rec:vRec,plan:vPlan,shops:vShops,set:vSet};
-function R(){save();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===U.tab));$('#v').innerHTML=V[U.tab]()}
+function R(){save();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===U.tab));$('#v').innerHTML=V[U.tab]();$('#names').innerHTML=[...new Set([...D.inv,...D.list].map(x=>x.name).concat(D.rec.flatMap(r=>r.ing.map(g=>g.name))))].map(n=>`<option value="${esc(n)}">`).join('')}
 document.addEventListener('click',e=>{
-const t=e.target.closest('[data-t]');if(t){U.tab=t.dataset.t;U.view=null;U.msg='';scrollTo(0,0);R();return}
+const t=e.target.closest('[data-t]');if(t){U.tab=t.dataset.t;U.view=null;U.msg='';U.ed=null;scrollTo(0,0);R();return}
 const b=e.target.closest('[data-a]');if(!b||b.dataset.a==='pxe')return;
-const f=A[b.dataset.a];if(f){f(b.dataset.i);R()}});
+const a=b.dataset.a,f=A[a];if(f){if(DEST[a])U.snap=JSON.stringify(D);f(b.dataset.i);R();if(DEST[a])toast(DEST[a],1);else if(a==='undo')$('#toast').hidden=true}});
 document.addEventListener('change',e=>{const t=e.target,a=t.dataset.a,i=t.dataset.i;
 if(t.id==='rcp'&&t.files[0]){scan(t.files[0]);return}
+if(t.id==='rsc'&&t.files[0]){scanRecipe(t.files[0]);return}
+if(a==='pday'){D.plan.find(x=>x.id===i).day=+t.value;R();return}
 if(t.id==='imp'&&t.files[0]){t.files[0].text().then(s=>{try{D=Object.assign(D0(),JSON.parse(s),{key:D.key});theme();R()}catch(x){}});return}
 if(a==='pxe'){const p=parseFloat(t.value);if(!isNaN(p)){D.px[U.shop][i].p=p;save()}return}
 if(U.rv&&a&&a.startsWith('rv')){const x=U.rv.items[i];
@@ -266,6 +302,7 @@ if(a==='rvt')x.tot=parseFloat(t.value)||0;
 if(a==='rvc')x.cnt=parseFloat(t.value)||0;
 const e2=$('#rvx'+i);if(e2)e2.textContent=rvTxt(x);return}
 if(t.id==='ph'&&t.files[0]){const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas'),s=Math.min(1,480/im.width);c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);U.ph=c.toDataURL('image/jpeg',.7);const pv=$('#pv');pv.style.backgroundImage=`url(${U.ph})`;pv.textContent=''};im.src=fr.result};fr.readAsDataURL(t.files[0])}});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset.q!==undefined){const q=t.value.toLowerCase();document.querySelectorAll('#v [data-n]').forEach(el=>el.hidden=!el.dataset.n.includes(q))}});
 theme();R();
 (async()=>{try{if(window.claude){SM=await claude.use('sample');if(SM){const l=await SM.limits();IMG=!!(l&&l.images)}}}catch(e){}if(!U.rv&&!U.rs&&(U.tab==='shops'||U.tab==='set'))R()})();
 if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
