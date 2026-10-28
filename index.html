@@ -78,7 +78,7 @@ nav .on{color:var(--ac);font-weight:600;border-top-color:var(--ac)}
 <script>
 const SH=['Lidl','Asda','Sainsbury’s','Morrisons','Tesco','Local'],UN=['each','g','kg','ml','l'];
 const AC={Brass:['#8a5a00','#e5b567'],Teal:['#0b8f7f','#35c4b0'],Violet:['#7c3aed','#a98bff'],Rose:['#e11d6a','#ff6fa5'],Orange:['#d9480f','#ff9a55'],Green:['#2f9e44','#5fd37a']};
-const D0=()=>({inv:[],list:[],rec:[],plan:[],px:{},pk:{},log:[],al:{},nd:[],ts:1,born:Date.now(),lastBackup:0,welcomed:false,v:2,ac:'Brass',mode:'dark',key:''});
+const D0=()=>({inv:[],list:[],rec:[],plan:[],px:{},pk:{},log:[],al:{},nd:[],ts:1,sub:{garlic:{u:'clove',n:12}},born:Date.now(),lastBackup:0,welcomed:false,v:2,ac:'Brass',mode:'dark',key:''});
 let D=D0(),U={tab:'today',sort:'type',ls:'plain',shop:SH[0],rid:null,view:null,sv:null,f:'',ph:'',rv:null,rs:'',msg:'',ed:null,cook:false,wl:null,draft:null,snap:null,fav:false,fresh:false,cs:0,tm:null,wo:0,qe:null,pop:null,paste:false,sel:null},SM=null,IMG=false;
 try{const r=localStorage.getItem('shopingg');if(r)D=Object.assign(D,JSON.parse(r))}catch(e){}
 if(D.v!==2){D.v=2;D.mode='dark';D.ac='Brass'}
@@ -101,7 +101,10 @@ const t=$('meta[name=theme-color]');if(t)t.content=getComputedStyle(r).getProper
 matchMedia('(prefers-color-scheme:dark)').addEventListener('change',theme);
 // units: quantities are stored in g, ml or a plain count
 const toB=(q,u)=>({q:u==='kg'||u==='l'?q*1000:q,b:u==='kg'||u==='g'?'g':u==='l'||u==='ml'?'ml':''});
-const fmt=(q,b)=>b?(q>=1000?N(q/1000)+(b==='g'?' kg':' l'):N(q)+' '+b):N(q);
+const fmt=(q,b)=>b?(q>=1000?N(q/1000)+(b==='g'?' kg':' l'):N(q)+' '+b):fr(q);
+const N4=x=>Math.round(x*1e4)/1e4;
+const fr=q=>{q=N(q);const w=Math.floor(q),f=q-w,M=[[.5,'½'],[.25,'¼'],[.75,'¾'],[1/3,'⅓'],[2/3,'⅔'],[.125,'⅛']];if(f<.02)return String(w);const m=M.find(([v])=>Math.abs(f-v)<.02);return m?(w||'')+m[1]:String(q)};
+const fq=(n,q,b)=>{const s=!b&&D.sub[K(n)];if(!s)return fmt(q,b);const w=Math.floor(q+1e-6),r=Math.round((q-w)*s.n),u=s.u+(r===1?'':'s');if(r>=s.n)return fmt(w+1,'');return !r?fmt(w,''):w?`${w} + ${r} ${u}`:`${r} ${u}`};
 const stepOf=b=>b?100:1,lab=b=>({g:'/kg',ml:'/l'}[b||'']||''),plab=b=>({g:'per kg',ml:'per litre'}[b||'']||'each');
 const usel=i=>`<select id=${i} aria-label="Unit">${UN.map(u=>`<option>${u}</option>`).join('')}</select>`;
 const T=[['Cleaning','bleach|detergent|washing|sponge|soap|cleaner|bin bag|toilet|dishwasher'],['Fish','salmon|cod|prawn|haddock|fish'],['Meat','chicken|beef|mince|pork|lamb|bacon|sausage|ham|turkey|steak'],['Dairy & Eggs','milk|cheese|butter|yogh?urt|cream|egg'],['Fruit','apple|banana|orange|lemon|lime|berr|grape'],['Veg','tomato|onion|carrot|potato|pepper|garlic|broccoli|lettuce|cucumber|mushroom|spinach|courgette|cabbage|leek'],['Tins & Dry','tin|bean|chickpea|lentil|rice|pasta|flour|sugar|oil|sauce|stock|noodle|tuna|spice|salt']];
@@ -109,15 +112,15 @@ const typ=n=>{n=n.toLowerCase();for(const[t,r]of T)if(new RegExp(r).test(n))retu
 const locDef=t=>({Cleaning:'Cleaning','Tins & Dry':'Cupboard',Other:'Cupboard',Fruit:'Cupboard'}[t]||'Fridge');
 const find=(a,n,b)=>a.find(x=>K(x.name)===K(n)&&(x.b||'')===(b||'')),
 cv=(n,f,t,q)=>{const p=D.pk[K(n)];if(!p||f===t)return 0;return f===''&&p.b===t?q*p.q:f===p.b&&t===''?q/p.q:0},
-have=(n,b)=>{b=b||'';let t=(find(D.inv,n,b)||{qty:0}).qty;D.inv.forEach(x=>{if(K(x.name)===K(n)&&(x.b||'')!==b)t+=cv(n,x.b||'',b,x.qty)});return t};
-function addInv(n,q,b,t,l){const i=find(D.inv,n,b);if(i)i.qty=N(i.qty+q);else{t=t||typ(n);D.inv.push({id:id(),name:n,qty:q,b,type:t,loc:l||locDef(t)})}}
+have=(n,b)=>{b=b||'';const e=x=>x.out?0:x.qty;let t=0;D.inv.forEach(x=>{if(K(x.name)!==K(n))return;t+=(x.b||'')===b?e(x):cv(n,x.b||'',b,e(x))});return t};
+function addInv(n,q,b,t,l){const i=find(D.inv,n,b);if(i){i.qty=N(i.qty+q);i.out=false}else{t=t||typ(n);D.inv.push({id:id(),name:n,qty:q,b,type:t,loc:l||locDef(t)})}}
 function addList(n,q,b,mx){const i=D.list.find(x=>K(x.name)===K(n)&&(x.b||'')===(b||'')&&!x.done);if(i)i.qty=mx?Math.max(i.qty,q):N(i.qty+q);else D.list.push({id:id(),name:n,qty:q,b:b||'',done:false})}
 const pk=(n,b)=>K(n)+'|'+(b||''),ext=(p,q,b)=>p*(b?q/1000:q);
 const pr=(n,b,s)=>{const e=(D.px[s]||{})[pk(n,b)];return e?e.p:null};
 const best=(n,b)=>{let o=null;SH.forEach(s=>{const p=pr(n,b,s);if(p!=null&&(!o||p<o.p))o={s,p}});return o};
 const tl=r=>[r.cuisine,...(r.tags||'').split(',').map(s=>s.trim())].filter(Boolean);
 const recOf=i=>D.rec.find(x=>x.id===i),sc=r=>(U.sv||r.serves)/r.serves;
-function syncPlan(){const m={};D.plan.filter(p=>!p.done).forEach(p=>{const r=recOf(p.rid);if(!r)return;r.ing.forEach(g=>{const k=pk(g.name,g.b);m[k]=m[k]||{n:g.name,b:g.b||'',q:0};m[k].q+=g.qty*p.sv/r.serves})});Object.values(m).forEach(g=>{const s=Math.ceil(g.q-1e-9)-have(g.n,g.b);if(s>0&&!isStaple(g.n))addList(g.n,s,g.b,1)})}
+function syncPlan(){const m={};D.plan.filter(p=>!p.done).forEach(p=>{const r=recOf(p.rid);if(!r)return;r.ing.forEach(g=>{const k=pk(g.name,g.b);m[k]=m[k]||{n:g.name,b:g.b||'',q:0};m[k].q+=eq(g,p.sv/r.serves)})});Object.values(m).forEach(g=>{const s=Math.ceil(g.q-have(g.n,g.b)-1e-9);if(s>0&&!isStaple(g.n))addList(g.n,s,g.b,1)})}
 const stp=(a,i,t)=>`<span class=st><button data-a="${a}-" data-i="${i}" aria-label="Less">−</button>${(a==='iq'||a==='lq')?qcell(a,i,t):`<b>${t}</b>`}<button data-a="${a}+" data-i="${i}" aria-label="More">+</button></span>`;
 
 function setPx(sh,n,b,p){const m=D.px[sh]=D.px[sh]||{},k=pk(n,b),e=m[k]||{n,b,h:[]};e.n=n;e.b=b;e.h=e.h||[];if(e.p!=null&&!e.h.length)e.h.push([0,e.p]);if(!e.h.length||e.h[e.h.length-1][1]!==p)e.h.push([Date.now(),p]);e.p=p;m[k]=e}
@@ -141,7 +144,7 @@ ${U.tm?`<div class=card><div class=tr><span><b id=tmr></b> <small>${esc(U.tm.lab
 <div class=card style="font:500 28px/1.35 Fraunces,Georgia,serif;min-height:200px">${esc(st[i])}</div>
 ${sec?`<button class=sec data-a=tstart data-i=${sec} style="width:100%;margin-bottom:12px">Start ${fmtT(sec)} timer</button>`:''}
 <div class=row style="margin-bottom:12px"><button class=sec data-a=cprev ${i?'':'disabled'} style="padding:16px">Back</button><button class=pri data-a=cnext style="padding:16px">${i<st.length-1?'Next':'Finish and mark made'}</button></div>
-<h3>Ingredients</h3><div class=card>${r.ing.map(g=>`<div class=it><div class=g>${fmt(N(g.qty*k),g.b||'')} ${esc(g.name)}</div></div>`).join('')}</div>`}
+<h3>Ingredients</h3><div class=card>${r.ing.map(g=>`<div class=it><div class=g>${ingTxt(g,k)} ${esc(g.name)}</div></div>`).join('')}</div>`}
 const POT=`<span class=lg aria-hidden="true"></span>`;
 const QV=(a,i)=>{const x=(a==='iq'?D.inv:D.list).find(z=>z.id===i);return x?x.qty:0};
 const qcell=(a,i,t)=>U.qe===a+':'+i?`<input id=qe class=qi type=number step=any min=0 value="${QV(a,i)}" aria-label="Quantity">`:`<button class=qv data-a=qe data-i="${a}:${i}" aria-label="Edit quantity">${t}</button>`;
@@ -158,10 +161,10 @@ for(const l of L.slice(1)){if(/^ingredients?:?$/i.test(l)){mode='i';continue}if(
 if(mode==='i')ing.push(l.replace(/^[-•*]\s*/,''));else if(mode==='s')st.push(l.replace(/^\d+[.)]\s*/,''));else if(/^(\d|[-•*])/.test(l))ing.push(l.replace(/^[-•*]\s*/,''));else st.push(l)}
 const sv=(t.match(/(?:serves|servings|makes)\D{0,3}(\d+)/i)||[])[1];
 U.rid=null;U.draft={name:L[0]||'',cuisine:'',tags:'',serves:+sv||4,ing:parseIng(ing.join('\n')),steps:st.join('\n')};U.view='form'}
-const planCost=p=>{const r=recOf(p.rid);let c=0,m=0;if(r)r.ing.forEach(g=>{const b=best(g.name,g.b||'');b?c+=ext(b.p,g.qty*p.sv/r.serves,g.b||''):m++});return{c,m}};
+const planCost=p=>{const r=recOf(p.rid);let c=0,m=0;if(r)r.ing.forEach(g=>{const b=best(g.name,g.b||'');b?c+=ext(b.p,eq(g,p.sv/r.serves),g.b||''):m++});return{c,m}};
 function vToday(){
 const ds=iso(new Date()),nm=D.plan.filter(p=>p.date===ds&&!p.done).map(p=>({p,r:recOf(p.rid)})).filter(o=>o.r);
-const L=D.list.filter(x=>!x.done),low=D.inv.filter(i=>!i.stp&&(i.qty<=0||i.qty<(i.low||0))&&!D.list.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done)).slice(0,5);
+const L=D.list.filter(x=>!x.done),low=D.inv.filter(i=>isLow(i)&&!D.list.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done)).slice(0,5);
 const ready=D.rec.filter(r=>r.ing.length&&miss(r)===0).slice(0,3);
 const tot=SH.map(sh=>{let t=0,m=0;L.forEach(x=>{const p=pr(x.name,x.b,sh);p==null?m++:t+=ext(p,x.qty,x.b)});return{s:sh,t,m}}).filter(o=>L.length&&o.m<L.length).sort((a,b)=>a.m-b.m||a.t-b.t)[0];
 const due=D.lastBackup?Date.now()-D.lastBackup>30*DAY:(Date.now()-D.born>30*DAY&&(D.inv.length||D.rec.length)),dup=simPair();
@@ -172,17 +175,33 @@ ${welcome()}${due?`<div class=card><b>Time for a backup</b><br><small>Your data 
 ${low.length?`<h3>Running low</h3><div class=chips>${low.map(i=>`<button class=chip data-a=sug data-i=${i.id}>+ ${esc(i.name)}</button>`).join('')}</div>`:''}
 ${dup?`<h3>Same thing?</h3><div class=card><small>“${esc(dup[0])}” and “${esc(dup[1])}” look like the same item. Merge them?</small><div class=row style="margin-top:8px"><button class=pri data-a=merge>Merge</button><button class=sec data-a=nomerge>Not the same</button></div></div>`:''}`}
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],td=()=>(new Date().getDay()+6)%7;
-const isStaple=n=>D.inv.some(x=>K(x.name)===K(n)&&x.stp);
-const miss=r=>r.ing.filter(g=>!isStaple(g.name)&&have(g.name,g.b||'')<g.qty-1e-9).length;
-const parseIng=s=>s.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const m=l.match(/^(\d+(?:\.\d+)?)\s*(kg|g|ml|l)?\b\s*(.*)$/i);if(!m||!m[3])return{qty:1,b:'',name:l};const o=toB(+m[1],(m[2]||'each').toLowerCase());return{qty:o.q,b:o.b,name:m[3]}});
-function take(n,b,q){let r=q;const e=find(D.inv,n,b);if(e){const u=Math.min(e.qty,r);e.qty=N(e.qty-u);r-=u}
-if(r>0)D.inv.forEach(x=>{if(r>0&&K(x.name)===K(n)&&(x.b||'')!==b){const f=cv(n,b,x.b||'',1);if(f){const u=Math.min(x.qty,r*f);x.qty=N(x.qty-u);r-=u/f}}})}
+const isStaple=n=>D.inv.some(x=>K(x.name)===K(n)&&x.stp&&!x.out);
+const isLow=i=>i.stp?!!i.out:(i.qty<=0||i.qty<(i.low||0));
+const eq=(g,k)=>g.fix?0.01:g.qty*k;
+const ingTxt=(g,k)=>g.fix?`${N(g.mq*k)} ${g.mu}`:fq(g.name,N4(g.qty*k),g.b||'');
+const ingLine=g=>{if(g.fix)return `${g.mq} ${g.mu} ${g.name}`;const sb=!g.b&&D.sub[K(g.name)];return sb&&g.qty<1?`${N4(g.qty*sb.n)} ${sb.u}s ${g.name}`:`${fmt(g.qty,g.b||'')} ${g.name}`};
+const MEAS='tsp tbsp teaspoon teaspoons tablespoon tablespoons pinch pinches dash handful sprig sprigs splash knob glug drizzle'.split(' ');
+const FRC={'½':.5,'¼':.25,'¾':.75,'⅓':1/3,'⅔':2/3,'⅛':.125};
+const QRE=/^((?:\d+\s+)?\d+\/\d+|\d*\.\d+|\d+\s*[½¼¾⅓⅔⅛]?|[½¼¾⅓⅔⅛])\s*(.*)$/;
+const toQ=t=>{t=t.trim();const f=t.match(/^(?:(\d+)\s+)?(\d+)\/(\d+)$/);if(f)return(+f[1]||0)+f[2]/f[3];const g=t.match(/^(\d*\.?\d*)\s*([½¼¾⅓⅔⅛])?$/);return(parseFloat(g[1])||0)+(g[2]?FRC[g[2]]:0)};
+const miss=r=>r.ing.filter(g=>!isStaple(g.name)&&have(g.name,g.b||'')<eq(g,1)-1e-9).length;
+const parseIng=s=>s.split('\n').map(l=>l.trim().replace(/^an?\s+/i,'1 ')).filter(Boolean).map(l=>{
+const m=l.match(QRE);if(!m)return{qty:1,b:'',name:l};
+const q=toQ(m[1]),rest=m[2],w=rest.match(/^([a-zA-Z]+)\b\s*(?:of\s+)?(.*)$/);
+if(w&&w[2]){const u=w[1].toLowerCase();
+if(['kg','g','ml','l'].includes(u)){const o=toB(q,u);return{qty:o.q,b:o.b,name:w[2]}}
+if(MEAS.includes(u))return{qty:1,b:'',name:w[2],fix:1,mq:q,mu:u};
+const sb=D.sub[K(w[2].split(',')[0])];if(sb&&sb.u===u.replace(/s$/,''))return{qty:q/sb.n,b:'',name:w[2]}}
+return rest?{qty:q||1,b:'',name:rest}:{qty:1,b:'',name:l}});
+function take(n,b,q){let r=q;const e=find(D.inv,n,b);if(e){const u=Math.min(e.qty,r);e.qty=N4(e.qty-u);r-=u}
+if(r>0)D.inv.forEach(x=>{if(r>0&&K(x.name)===K(n)&&(x.b||'')!==b){const f=cv(n,b,x.b||'',1);if(f){const u=Math.min(x.qty,r*f);x.qty=N4(x.qty-u);r-=u/f}}})}
 const DEST={idel:'Item deleted',ldel:'Removed from list',fin:'Shop finished',rdel:'Recipe deleted',pdel:'Meal removed',sdel:'Price deleted',made:'Marked as made',rvsave:'Prices saved'};
 let tt;function toast(m,u){const t=$('#toast');t.innerHTML=`<span>${esc(m)}</span>${u?'<button data-a=undo>Undo</button>':''}`;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,6000)}
-function edCard(){const x=D.inv.find(a=>a.id===U.ed);if(!x)return'';const p=D.pk[K(x.name)];
+function edCard(){const x=D.inv.find(a=>a.id===U.ed);if(!x)return'';const p=D.pk[K(x.name)],sbv=D.sub[K(x.name)];
 return `<div class=card><b>Edit ${esc(x.name)}</b><input id=en value="${esc(x.name)}" style="margin-top:8px"><div class=row><select id=et>${[...T.map(t=>t[0]),'Other'].map(t=>`<option ${t===x.type?'selected':''}>${t}</option>`).join('')}</select><input id=el list=ll value="${esc(x.loc)}" placeholder="Location"></div>
 <div class=row><label style="flex:none;align-self:center;display:flex;gap:8px;align-items:center"><input type=checkbox id=es ${x.stp?'checked':''}>Staple</label><input id=elw type=number min=0 step=any value="${x.low||''}" placeholder="Low below (${x.b||'items'})"></div>
 <small>Pack size, so grams and items combine. 1 item =</small><div class=row style="margin-top:6px"><input id=epq type=number min=0 step=any value="${p?p.q:''}" placeholder="e.g. 500"><select id=epu>${['g','kg','ml','l'].map(u=>`<option ${p&&p.b==='ml'&&u==='ml'?'selected':''}>${u}</option>`).join('')}</select></div>
+<small>Recipes may use part of it. 1 item =</small><div class=row style="margin-top:6px"><input id=esn type=number min=0 step=any value="${sbv?sbv.n:''}" placeholder="e.g. 12"><input id=esu value="${sbv?sbv.u+'s':''}" placeholder="e.g. cloves"></div>
 <div class=row><button class=sec data-a=ecancel>Cancel</button><button class=pri data-a=esave>Save</button></div></div>`}
 const RPROMPT=`This is a photo or screenshot of a recipe. Reply with only JSON: {"name":"","cuisine":"","serves":number,"ingredients":["one per line, like 500 g mince or 3 tomatoes or 250 ml cream"],"steps":"method as plain text, one step per line"}. Use g, kg, ml, l or a plain count for amounts, converting cups and spoons if you can. Never invent anything that isn't shown.`;
 async function scanRecipe(file){U.rs='busy';U.msg='';R();
@@ -192,13 +211,13 @@ U.rs='';R()}
 function vInv(){
 const g={};D.inv.forEach(i=>{const k=U.sort==='az'?'All items':i[U.sort]||'Other';(g[k]=g[k]||[]).push(i)});
 const locs=[...new Set(D.inv.map(i=>i.loc))];
-return `<h1>Inventory</h1>${edCard()}<div class=card><input id=in list=names placeholder="Add item, e.g. chicken breast"><div class=row><input id=iqt type=number min=0 step=any value=1 aria-label="Amount">${usel('iu')}<input id=il list=ll placeholder="Location"></div><datalist id=ll>${locs.map(l=>`<option>${esc(l)}</option>`).join('')}</datalist><div class=row style="margin-top:8px"><select id=it style="margin:0"><option value="">Type: auto</option>${T.map(t=>`<option>${t[0]}</option>`).join('')}<option>Other</option></select><button class=pri data-a=iadd>Add</button></div></div>
+return `<h1>Inventory</h1>${edCard()}<div class=card><input id=in list=names placeholder="Add item, e.g. chicken breast"><div class=row><input id=iqt type=number min=0 step=any value=1 aria-label="Amount">${usel('iu')}<input id=il list=ll placeholder="Location"></div><datalist id=ll>${locs.map(l=>`<option>${esc(l)}</option>`).join('')}</datalist><div class=row style="margin-top:8px"><select id=it style="margin:0"><option value="">Type: auto</option>${T.map(t=>`<option>${t[0]}</option>`).join('')}<option>Other</option></select><button class=pri data-a=iadd>Add</button></div><label style="display:flex;gap:10px;align-items:center;margin-top:10px"><input type=checkbox id=ist>Always in stock (salt, oil, spices)</label></div>
 <input data-q placeholder="Search inventory"><div class=chips>${[['type','By type'],['loc','By location'],['az','A–Z']].map(([k,l])=>`<button class="chip ${U.sort===k?'on':''}" data-a=isort data-i=${k}>${l}</button>`).join('')}</div>
 ${D.inv.length?'':'<p class=mu>Nothing here yet. Add what’s in your cupboards, or finish a shop and it fills itself.</p>'}
-${Object.keys(g).sort().map(k=>`<h3>${esc(k)}</h3><div class=card>${g[k].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<div class="it ${i.qty<=0?'z':''}" data-n="${esc(i.name.toLowerCase())}" data-sw="i:${i.id}"><div class=g><div>${esc(i.name)}</div><small>${esc(U.sort==='type'?i.loc:U.sort==='loc'?i.type:i.loc+' · '+i.type)}${i.qty<=0?' · out':i.qty<(i.low||0)?' · low':''}${i.stp?' · staple':''}</small></div>${stp('iq',i.id,fmt(i.qty,i.b||''))}<button class=x data-a=iedit data-i=${i.id} aria-label="Edit">✎</button><button class=x data-a=idel data-i=${i.id} aria-label="Delete">✕</button></div>`).join('')}</div>`).join('')}`}
+${Object.keys(g).sort().map(k=>`<h3>${esc(k)}</h3><div class=card>${g[k].sort((a,b)=>a.name.localeCompare(b.name)).map(i=>`<div class="it ${(i.stp?i.out:i.qty<=0)?'z':''}" data-n="${esc(i.name.toLowerCase())}" data-sw="i:${i.id}"><div class=g><div>${esc(i.name)}</div><small>${esc(U.sort==='type'?i.loc:U.sort==='loc'?i.type:i.loc+' · '+i.type)}${i.stp?(i.out?' · out':' · always in'):(i.qty<=0?' · out':i.qty<(i.low||0)?' · low':'')}</small></div>${i.stp?`<button class=chip ${i.out?'style="color:var(--wa);font-weight:600"':''} data-a=sout data-i=${i.id}>${i.out?'Out of stock':'In stock'}</button>`:stp('iq',i.id,fq(i.name,i.qty,i.b||''))}<button class=x data-a=iedit data-i=${i.id} aria-label="Edit">✎</button><button class=x data-a=idel data-i=${i.id} aria-label="Delete">✕</button></div>`).join('')}</div>`).join('')}`}
 
 function vList(){
-const L=D.list,sug=D.inv.filter(i=>!i.stp&&(i.qty<=0||i.qty<(i.low||0))&&!L.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done));
+const L=D.list,sug=D.inv.filter(i=>isLow(i)&&!L.some(x=>K(x.name)===K(i.name)&&(x.b||'')===(i.b||'')&&!x.done));
 const tot=SH.map(s=>{let t=0,m=0;L.forEach(x=>{const p=pr(x.name,x.b,s);p==null?m++:t+=ext(p,x.qty,x.b)});return{s,t,m}}).filter(o=>o.m<L.length);
 let bs=null;if(tot.length){const mm=Math.min(...tot.map(o=>o.m)),c=tot.filter(o=>o.m===mm),mt=Math.min(...c.map(o=>o.t));bs=c.find(o=>o.t===mt).s}
 let sp=null;if(bs){const mv={};let sv=0;L.forEach(x=>{const b=best(x.name,x.b);if(!b||b.s===bs)return;const cur=pr(x.name,x.b,bs),d=cur==null?0:ext(cur-b.p,x.qty,x.b);if(d>0.004){sv+=d;(mv[b.s]=mv[b.s]||{n:0,d:0}).n++;mv[b.s].d+=d}});if(sv>0)sp={sv,mv}}
@@ -208,7 +227,7 @@ return `<h1>Shopping list</h1><div class=card><input id=ln list=names placeholde
 ${sug.length?`<h3>Out or running low. Add?</h3><div class=chips>${sug.map(i=>`<button class=chip data-a=sug data-i=${i.id}>+ ${esc(i.name)}</button>`).join('')}</div>`:''}
 <div class=chips>${[['plain','As added'],['type','By aisle'],['shop','By cheapest shop']].map(([k,l])=>`<button class="chip ${U.ls===k?'on':''}" data-a=lsort data-i=${k}>${l}</button>`).join('')}<button class="chip ${U.wl?'on':''}" data-a=wl>Keep screen on</button></div>
 ${L.length?'<small class=mu>Swipe right to tick, left to remove. Tap a quantity to type it.</small>':'<p class=mu>Your list is empty. Add items, or add a recipe to your meal plan.</p>'}
-${Object.keys(g).sort().map(k=>`${U.ls!=='plain'?`<h3>${esc(k)}</h3>`:''}<div class=card>${g[k].slice().sort((a,b)=>a.done-b.done).map(x=>{const b=best(x.name,x.b);return `<div class="it ${x.done?'dn':''}" data-sw="l:${x.id}"><input type=checkbox data-a=tick data-i=${x.id} ${U.pop===x.id?'class=pop':''} ${x.done?'checked':''} aria-label="Got it"><div class=g><div>${esc(x.name)}</div><small>${b?`Cheapest: ${esc(b.s)} ${gbp(b.p)}${lab(x.b)}`:'No price yet'}</small></div>${stp('lq',x.id,fmt(x.qty,x.b||''))}<button class=x data-a=ldel data-i=${x.id} aria-label="Remove">✕</button></div>`}).join('')}</div>`).join('')}
+${Object.keys(g).sort().map(k=>`${U.ls!=='plain'?`<h3>${esc(k)}</h3>`:''}<div class=card>${g[k].slice().sort((a,b)=>a.done-b.done).map(x=>{const b=best(x.name,x.b);return `<div class="it ${x.done?'dn':''}" data-sw="l:${x.id}"><input type=checkbox data-a=tick data-i=${x.id} ${U.pop===x.id?'class=pop':''} ${x.done?'checked':''} aria-label="Got it"><div class=g><div>${esc(x.name)}</div><small>${b?`Cheapest: ${esc(b.s)} ${gbp(b.p)}${lab(x.b)}`:'No price yet'}</small></div>${stp('lq',x.id,fq(x.name,x.qty,x.b||''))}<button class=x data-a=ldel data-i=${x.id} aria-label="Remove">✕</button></div>`}).join('')}</div>`).join('')}
 ${L.length?'<button class=sec data-a=share style="width:100%;margin-bottom:12px">Share list</button>':''}${nd?`<button class=pri data-a=fin style="width:100%;margin-bottom:12px">Finish shop: add ${nd} bought to inventory</button>`:''}
 ${tot.length?`<h3>Whole shop by store</h3><div class=card>${tot.map(o=>`<div class="tr ${o.s===bs?'best':''}"><span>${esc(o.s)}${o.s===bs?' (cheapest)':''}${o.m?` <small>${o.m} unpriced</small>`:''}</span><b>${gbp(o.t)}</b></div>`).join('')}</div>`:''}${sp?`<h3>Split-shop savings</h3><div class=card><small>Staying with ${esc(bs)} but buying these elsewhere would save ${gbp(sp.sv)} in total.</small>${Object.keys(sp.mv).map(k=>`<div class=tr><span>${sp.mv[k].n} item${sp.mv[k].n>1?'s':''} at ${esc(k)}</span><b class=ok>save ${gbp(sp.mv[k].d)}</b></div>`).join('')}</div>`:''}`}
 
@@ -232,14 +251,14 @@ return `<h1>${r.id?'Edit recipe':'New recipe'}</h1><div class=card>
 <div class=row><input id=rc list=cl placeholder="Cuisine" value="${esc(r.cuisine||'')}"><input id=rs type=number min=1 value="${r.serves||4}" aria-label="Serves"></div>
 <datalist id=cl>${['Italian','Mexican','Indian','Chinese','British','Thai'].map(c=>`<option>${c}</option>`).join('')}</datalist>
 <input id=rt placeholder="Tags, e.g. quick, fancy" value="${esc(r.tags||'')}">
-<textarea id=ri placeholder="Ingredients, one per line, e.g.&#10;500 g mince&#10;2 kidney beans&#10;1 l stock">${esc((r.ing||[]).map(g=>fmt(g.qty,g.b||'')+' '+g.name).join('\n'))}</textarea>
+<textarea id=ri placeholder="Ingredients, one per line, e.g.&#10;500 g mince&#10;2 kidney beans&#10;1 l stock">${esc((r.ing||[]).map(ingLine).join('\n'))}</textarea>
 <textarea id=rp placeholder="Method">${esc(r.steps||'')}</textarea>
 <div class=row><button class=sec data-a=rcancel>Cancel</button><button class=pri data-a=rsave>Save recipe</button></div></div>`}
 
 function vDet(){
 const r=recOf(U.rid),sv=U.sv||r.serves,k=sc(r);let cost=0,miss=0;
-const rows=r.ing.map((g,i)=>{const b0=g.b||'',q=N(g.qty*k),h=have(g.name,b0),need=isStaple(g.name)?0:N(Math.max(0,q-h)),b=best(g.name,b0);b?cost+=ext(b.p,q,b0):miss++;
-return `<div class=it><div class=g><div>${fmt(q,b0)} ${esc(g.name)}</div><small class="${need?'bad':'ok'}">${need?`Need ${fmt(need,b0)} more (have ${fmt(h,b0)})`:`Have enough (${fmt(h,b0)})`}</small></div>${need?`<button class=chip data-a=ring data-i=${i}>+ List</button>`:''}</div>`}).join('');
+const rows=r.ing.map((g,i)=>{const b0=g.b||'',q=N4(eq(g,k)),h=have(g.name,b0),need=isStaple(g.name)?0:N(Math.max(0,q-h)),b=best(g.name,b0);b?cost+=ext(b.p,q,b0):miss++;
+return `<div class=it><div class=g><div>${ingTxt(g,k)} ${esc(g.name)}</div><small class="${need?'bad':'ok'}">${need?(g.fix?'Not in stock':`Need ${fq(g.name,need,b0)} more (have ${fq(g.name,h,b0)})`):isStaple(g.name)?'Always in stock':g.fix?'In stock':`Have enough (${fq(g.name,h,b0)})`}</small></div>${need?`<button class=chip data-a=ring data-i=${i}>+ List</button>`:''}</div>`}).join('');
 return `<button class=sec data-a=rback style="margin-bottom:12px">Back</button>
 <div class="im hero" ${r.photo?`style="background-image:url(${r.photo})"`:''}>${r.photo?'':POT}</div>
 <h1 style="margin-top:0;font-size:30px">${esc(r.name)}</h1><p class=mu>${esc(tl(r).join(', '))}</p>
@@ -315,7 +334,7 @@ ${SM?'':`<div class=card style="border-top:1px solid var(--bd);padding-top:14px"
 
 const A={
 isort:i=>U.sort=i,
-iadd(){const n=v('in');if(!n)return;const o=toB(+v('iqt')||0,v('iu'));addInv(n,o.q,o.b,v('it'),v('il'));const x=D.inv.find(a=>K(a.name)===K(n)&&(a.b||'')!==o.b);if(x&&!D.pk[K(n)])toast('You also track '+n+' as '+(x.b||'items')+'. Tap ✎ to set a pack size so they combine.')},
+iadd(){const n=v('in');if(!n)return;const o=toB(+v('iqt')||0,v('iu'));addInv(n,o.q,o.b,v('it'),v('il'));{const nx=find(D.inv,n,o.b);if(nx&&$('#ist').checked){nx.stp=true;nx.out=false}}const x=D.inv.find(a=>K(a.name)===K(n)&&(a.b||'')!==o.b);if(x&&!D.pk[K(n)])toast('You also track '+n+' as '+(x.b||'items')+'. Tap ✎ to set a pack size so they combine.')},
 'iq-':i=>{const x=D.inv.find(x=>x.id===i);x.qty=Math.max(0,N(x.qty-stepOf(x.b)))},
 'iq+':i=>{const x=D.inv.find(x=>x.id===i);x.qty=N(x.qty+stepOf(x.b))},
 idel:i=>D.inv=D.inv.filter(x=>x.id!==i),
@@ -340,9 +359,9 @@ const o={name:n,cuisine:v('rc'),tags:v('rt'),serves:+v('rs')||4,ing,steps:$('#rp
 if(r)Object.assign(r,o);else{o.id=id();D.rec.push(o);U.rid=o.id}U.draft=null;U.view='detail';U.sv=null},
 'sv-'(){const r=recOf(U.rid);U.sv=Math.max(1,(U.sv||r.serves)-1)},
 'sv+'(){const r=recOf(U.rid);U.sv=(U.sv||r.serves)+1},
-ring(i){const r=recOf(U.rid),g=r.ing[i],b=g.b||'';addList(g.name,Math.ceil(g.qty*sc(r)-1e-9)-have(g.name,b),b,1)},
+ring(i){const r=recOf(U.rid),g=r.ing[i],b=g.b||'';addList(g.name,Math.ceil(eq(g,sc(r))-have(g.name,b)-1e-9),b,1)},
 padd(){const r=recOf(U.rid);D.plan.push({id:id(),rid:r.id,sv:U.sv||r.serves,date:v('pd')||null,done:false});syncPlan();U.tab='plan'},
-made(i){const p=D.plan.find(x=>x.id===i),r=recOf(p.rid);r.ing.forEach(g=>take(g.name,g.b||'',g.qty*p.sv/r.serves));p.done=true;D.log.push({rid:r.id,ts:Date.now()})},
+made(i){const p=D.plan.find(x=>x.id===i),r=recOf(p.rid);r.ing.filter(g=>!g.fix).forEach(g=>take(g.name,g.b||'',g.qty*p.sv/r.serves));p.done=true;D.log.push({rid:r.id,ts:Date.now()})},
 pdel:i=>D.plan=D.plan.filter(x=>x.id!==i),
 shop:i=>U.shop=i,
 sadd(){const n=v('sn'),p=parseFloat(v('sp')),b=v('spu');if(!n||isNaN(p))return;setPx(U.shop,n,b,p)},
@@ -355,10 +374,10 @@ it.forEach(x=>{const o=rvEach(x);setPx(r.shop,x.n.trim(),o.b,N(o.p))});U.shop=r.
 iedit(i){U.ed=i;scrollTo(0,0)},
 ecancel(){U.ed=null},
 esave(){const x=D.inv.find(a=>a.id===U.ed);if(!x)return;x.name=v('en')||x.name;x.type=v('et');x.loc=v('el')||x.loc;x.stp=$('#es').checked;x.low=+v('elw')||0;
-const q=+v('epq');if(q>0){const o=toB(q,v('epu'));D.pk[K(x.name)]={b:o.b,q:o.q}}else delete D.pk[K(x.name)];U.ed=null},
+const q=+v('epq');if(q>0){const o=toB(q,v('epu'));D.pk[K(x.name)]={b:o.b,q:o.q}}else delete D.pk[K(x.name)];const sn=+v('esn'),su=v('esu').toLowerCase().replace(/s$/,'');if(sn>0&&su)D.sub[K(x.name)]={u:su,n:sn};else delete D.sub[K(x.name)];U.ed=null},
 cook(){U.cook=!U.cook},
 wl(){if(U.wl)U.wl.release();else if(navigator.wakeLock)navigator.wakeLock.request('screen').then(l=>{U.wl=l;l.addEventListener('release',()=>{U.wl=null;if(U.tab==='list')R()});R()}).catch(()=>{})},
-share(){const t='Shopping list\n'+D.list.filter(x=>!x.done).map(x=>'• '+fmt(x.qty,x.b||'')+' '+x.name).join('\n');if(navigator.share)navigator.share({text:t}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('List copied'))},
+share(){const t='Shopping list\n'+D.list.filter(x=>!x.done).map(x=>'• '+fq(x.name,x.qty,x.b||'')+' '+x.name).join('\n');if(navigator.share)navigator.share({text:t}).catch(()=>{});else if(navigator.clipboard)navigator.clipboard.writeText(t).then(()=>toast('List copied'))},
 undo(){if(U.snap){D=JSON.parse(U.snap);U.snap=null}},
 favf(){U.fav=!U.fav},
 fresh(){U.fresh=!U.fresh},
@@ -368,9 +387,10 @@ fav(){const r=recOf(U.rid);r.fav=!r.fav},
 cm(){U.view='cook';U.cs=0;wlOn()},
 cend(){U.view='detail';if(U.wl)U.wl.release()},
 cprev(){U.cs=Math.max(0,U.cs-1)},
-cnext(){const r=recOf(U.rid),st=stepsOf(r);if(U.cs<st.length-1){U.cs++;return}const p=D.plan.find(x=>x.rid===r.id&&!x.done);if(p)A.made(p.id);else{r.ing.forEach(g=>take(g.name,g.b||'',g.qty*sc(r)));D.log.push({rid:r.id,ts:Date.now()})}A.cend();toast('Marked as made')},
+cnext(){const r=recOf(U.rid),st=stepsOf(r);if(U.cs<st.length-1){U.cs++;return}const p=D.plan.find(x=>x.rid===r.id&&!x.done);if(p)A.made(p.id);else{r.ing.filter(g=>!g.fix).forEach(g=>take(g.name,g.b||'',g.qty*sc(r)));D.log.push({rid:r.id,ts:Date.now()})}A.cend();toast('Marked as made')},
 tstart(i){clearInterval(ti);U.tm={end:Date.now()+(+i)*1000,label:'Step '+(U.cs+1)};ti=setInterval(tick,500);setTimeout(tick,0)},
 tstop(){clearInterval(ti);U.tm=null},
+sout(i){const x=D.inv.find(z=>z.id===i);x.out=!x.out},
 qe(i){U.qe=i},
 stap(i){const x=U.sel||STAPLES.slice();U.sel=x.includes(i)?x.filter(z=>z!==i):[...x,i]},
 stadd(){(U.sel||STAPLES).forEach(n=>{addInv(n,1,'');const x=find(D.inv,n,'');if(x)x.stp=true});D.welcomed=true;U.sel=null},
@@ -418,6 +438,14 @@ let sw=null;
 document.addEventListener('touchstart',e=>{const r=e.target.closest('[data-sw]');if(!r||e.target.closest('button,input,select'))return;sw={r,x:e.touches[0].clientX,y:e.touches[0].clientY,d:0}},{passive:true});
 document.addEventListener('touchmove',e=>{if(!sw)return;const dx=e.touches[0].clientX-sw.x,dy=e.touches[0].clientY-sw.y;if(Math.abs(dy)>Math.abs(dx)&&Math.abs(dx)<12){sw=null;return}sw.d=dx;sw.r.style.transform='translateX('+dx+'px)';sw.r.style.opacity=1-Math.min(.5,Math.abs(dx)/300)},{passive:true});
 document.addEventListener('touchend',()=>{if(!sw)return;const{r,d}=sw;sw=null;r.style.transform='';r.style.opacity='';if(Math.abs(d)>90){const[k,i]=r.dataset.sw.split(':');if(d>0&&k==='l'){A.tick(i);R()}else if(d<0){const a=k==='l'?'ldel':'idel';U.snap=JSON.stringify(D);A[a](i);R();toast(DEST[a],1)}}});
+{const bad=/^([.\/]|\d+\/\d)/;
+const fixIng=g=>{if(g.fix||g.b)return g;if(bad.test(g.name)){const t=(g.name[0]==='.'?'':g.qty+(g.name[0]==='/'?'':' '))+g.name;g=parseIng(t)[0]||g;if(g.fix||g.b)return g}
+const m=g.name.match(/^([a-zA-Z]+)\s+(?:of\s+)?(.+)$/);if(!m)return g;const u=m[1].toLowerCase();
+if(MEAS.includes(u))return{qty:1,b:'',name:m[2],fix:1,mq:g.qty,mu:u};
+const sb=D.sub[K(m[2].split(',')[0])];if(sb&&sb.u===u.replace(/s$/,''))return{qty:g.qty/sb.n,b:'',name:m[2]};return g};
+D.rec.forEach(r=>{r.ing=r.ing.map(fixIng)});
+D.list.forEach(x=>{const g=fixIng({qty:x.qty,b:x.b||'',name:x.name});if(g.name!==x.name){x.name=g.name;x.qty=Math.max(1,Math.ceil(g.qty-1e-9))}});
+D.list=D.list.filter((x,i,a)=>a.findIndex(y=>K(y.name)===K(x.name)&&(y.b||'')===(x.b||'')&&y.done===x.done)===i)}
 {const h=location.hash.slice(1);if(V[h])U.tab=h}
 theme();R();
 (async()=>{try{if(window.claude){SM=await claude.use('sample');if(SM){const l=await SM.limits();IMG=!!(l&&l.images)}}}catch(e){}if(!U.rv&&!U.rs&&(U.tab==='shops'||U.tab==='set'))R()})();
